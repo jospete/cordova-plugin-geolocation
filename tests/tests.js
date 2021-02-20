@@ -264,7 +264,7 @@ exports.defineAutoTests = function () {
                 navigator.geolocation.clearWatch(successWatch);
             });
 
-            it('geolocation.spec.11 should be called with a Position object', function (done) {
+            it('geolocation.spec.11 should poll for the position at the given frequency', function (done) {
 
                 if (isWindowsStore || skipAndroid || isIOSSim) {
                     pending();
