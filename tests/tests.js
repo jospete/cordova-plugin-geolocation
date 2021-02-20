@@ -65,9 +65,12 @@ exports.defineAutoTests = function () {
     if (versionRegex !== null) {
         majorDeviceVersion = Number(versionRegex[1]);
     }
+
+    var isAndroid = cordova.platformId === 'android';
+
     // Starting from Android 6.0 there are confirmation dialog which prevents us from running auto tests in silent mode (user interaction needed)
     // Also, Android emulator doesn't provide geo fix without manual interactions or mocks
-    var skipAndroid = cordova.platformId === 'android' && (device.isVirtual || majorDeviceVersion >= 6); // eslint-disable-line no-undef
+    var skipAndroid = isAndroid && (device.isVirtual || majorDeviceVersion >= 6); // eslint-disable-line no-undef
     var isIOSSim = false; // if iOS simulator does not have a location set, it will fail.
 
     describe('Geolocation (navigator.geolocation)', function () {
@@ -246,6 +249,66 @@ exports.defineAutoTests = function () {
                 );
                 expect(successWatch).toBeDefined();
             });
+        });
+
+        describe('frequency option', function () {
+
+            // Only supported on android platform
+            if (!isAndroid) {
+                return;
+            }
+
+            var successWatch = null;
+
+            afterEach(function () {
+                navigator.geolocation.clearWatch(successWatch);
+            });
+
+            it('geolocation.spec.11 should poll for the position at the given frequency', function (done) {
+
+                var callCount = 0;
+
+                spyOn(navigator.geolocation, 'getCurrentPosition').and.callThrough();
+
+                var startTimestamp = Date.now();
+                var expectedCallCount = 3;
+
+                var watchOptions = {
+                    maximumAge: 5000,
+                    frequency: 1000
+                };
+
+                var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
+
+                var successCallback = function () {
+
+                    callCount++;
+
+                    if (callCount < expectedCallCount) {
+                        return;
+                    }
+
+                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(3);
+                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledWith(successCallback, errorCallback, watchOptions);
+
+                    var elapsed = Date.now() - startTimestamp;
+                    var elapsedApproximation = expectedCallCount * watchOptions.frequency;
+                    expect(elapsed).toBeGreaterThanOrEqual(elapsedApproximation);
+                    expect(elapsed).toBeLessThanOrEqual(elapsedApproximation + 2000); // give-or-take 2 seconds
+
+                    // callback could be called sync so we invoke done async to make sure we know watcher id to .clear in afterEach
+                    setTimeout(function () {
+                        done();
+                    });
+                };
+
+                successWatch = navigator.geolocation.watchPosition(successCallback, errorCallback, watchOptions);
+                expect(successWatch).toBeDefined();
+            });
+
+            // it('geolocation.spec.12 should not allow the max age to be less than the provided frequency', function (done) {
+
+            // });
         });
     });
 };
