@@ -306,9 +306,28 @@ exports.defineAutoTests = function () {
                 expect(successWatch).toBeDefined();
             });
 
-            // it('geolocation.spec.12 should not allow the max age to be less than the provided frequency', function (done) {
+            it('geolocation.spec.12 should not allow the max age to be less than the provided frequency', function (done) {
 
-            // });
+                var watchOptions = {
+                    maximumAge: 3000,
+                    frequency: 6000
+                };
+
+                var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
+
+                var successCallback = function () {
+
+                    expect(watchOptions.maximumAge).toBe(watchOptions.frequency);
+
+                    // callback could be called sync so we invoke done async to make sure we know watcher id to .clear in afterEach
+                    setTimeout(function () {
+                        done();
+                    });
+                };
+
+                successWatch = navigator.geolocation.watchPosition(successCallback, errorCallback, watchOptions);
+                expect(successWatch).toBeDefined();
+            });
         });
     });
 };
