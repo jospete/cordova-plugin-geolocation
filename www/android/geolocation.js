@@ -55,19 +55,19 @@ var androidGeolocation = {
             usesFrequency = true;
             frequency = args.frequency;
 
-            // Don't allow the max age to be less than the frequency.
+            // Don't allow the max age to be less than the frequency since frequency gets the ultimate say.
             if (!isPositiveNumber(args.maximumAge) || args.maximumAge < frequency) {
                 args.maximumAge = frequency;
             }
         }
 
         var win = function () {
-            var nativeWatchOptions = { id: null, intervalId: null, usesFrequency: usesFrequency };
+            var nativeWatchOptions = { id: null, usesFrequency: usesFrequency };
 
             if (usesFrequency) {
-                nativeWatchOptions.intervalId = setInterval(function () {
-                    androidGeolocation.getCurrentPosition(success, error, args);
-                }, frequency);
+                // It doesn't make sense to track multiple callbacks if the point is to conserve battery,
+                // so we will only track a single callback context at any given time for position watching.
+                exec(success, error, 'Geolocation', 'beginNativeWatch', [args]);
 
             } else {
                 var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
@@ -96,7 +96,7 @@ var androidGeolocation = {
             }
 
             if (nativeWatchOptions.usesFrequency) {
-                clearInterval(nativeWatchOptions.intervalId);
+                exec(null, null, 'Geolocation', 'clearNativeWatch', []);
 
             } else {
                 var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
