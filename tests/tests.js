@@ -353,6 +353,45 @@ exports.defineAutoTests = function () {
 
                 expect(successWatch).toBeDefined();
             });
+            
+            it('geolocation.spec.13 does not use frequency values less than a second', function (done) {
+
+                if (isWindowsStore || skipAndroid || isIOSSim) {
+                    pending();
+                }
+
+                var watchOptions = {
+                    frequency: 999
+                };
+
+                var context = this;
+                var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
+                spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake(function (success) { success(); });
+
+                var windowGeolocation = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation');
+                spyOn(windowGeolocation, 'watchPosition').and.callThrough();
+
+                var successCallback = function () {
+
+                    if (context.done) return;
+                    context.done = true;
+
+                    expect(windowGeolocation.watchPosition).toHaveBeenCalled();
+                    expect(navigator.geolocation.getCurrentPosition).not.toHaveBeenCalled();
+
+                    setTimeout(function () {
+                        done();
+                    });
+                };
+
+                successWatch = navigator.geolocation.watchPosition(
+                    successCallback,
+                    errorCallback,
+                    watchOptions
+                );
+
+                expect(successWatch).toBeDefined();
+            });
 
         });
     });
