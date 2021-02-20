@@ -288,7 +288,7 @@ exports.defineAutoTests = function () {
                         return;
                     }
 
-                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(3);
+                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(expectedCallCount);
                     expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledWith(successCallback, errorCallback, watchOptions);
 
                     var elapsed = Date.now() - startTimestamp;
