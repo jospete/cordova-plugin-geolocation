@@ -326,11 +326,12 @@ exports.defineAutoTests = function () {
 
                 var watchOptions = {
                     maximumAge: 3000,
-                    frequency: 6000
+                    frequency: 4000
                 };
 
                 var context = this;
                 var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
+                spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake(function (success) { success(); });
 
                 var successCallback = function () {
 
@@ -344,9 +345,15 @@ exports.defineAutoTests = function () {
                     });
                 };
 
-                successWatch = navigator.geolocation.watchPosition(successCallback, errorCallback, watchOptions);
+                successWatch = navigator.geolocation.watchPosition(
+                    successCallback,
+                    errorCallback,
+                    watchOptions
+                );
+
                 expect(successWatch).toBeDefined();
             });
+
         });
     });
 };
