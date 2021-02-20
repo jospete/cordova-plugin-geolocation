@@ -23,6 +23,10 @@ var exec = cordova.require('cordova/exec'); // eslint-disable-line no-undef
 var utils = require('cordova/utils');
 var PositionError = require('./PositionError');
 
+var isPositiveNumber = function (v) {
+    return typeof v === 'number' && v > 0;
+};
+
 // Native watchPosition method is called async after permissions prompt.
 // So we use additional map and own ids to return watch id synchronously.
 var pluginToNativeWatchMap = {};
@@ -43,10 +47,34 @@ module.exports = {
 
     watchPosition: function (success, error, args) {
         var pluginWatchId = utils.createUUID();
+        var usesFrequency = false;
+        var frequency = -1;
+
+        // Don't use the frequency option if its less than 1 second since that kind of defeats the purpose of it.
+        if (args && isPositiveNumber(args.frequency) && args.frequency >= 1000) {
+            usesFrequency = true;
+            frequency = args.frequency;
+
+            // Don't allow the max age to be less than the frequency.
+            if (!isPositiveNumber(args.maximumAge) || args.maximumAge < frequency) {
+                args.maximumAge = frequency;
+            }
+        }
 
         var win = function () {
             var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
-            pluginToNativeWatchMap[pluginWatchId] = geo.watchPosition(success, error, args);
+            var nativeWatchOptions = { id: null, intervalId: null, usesFrequency: usesFrequency };
+
+            if (usesFrequency) {
+                nativeWatchOptions.intervalId = setInterval(function () {
+                    geo.getCurrentPosition(success, error, args);
+                }, frequency);
+
+            } else {
+                nativeWatchOptions.id = geo.watchPosition(success, error, args);
+            }
+
+            pluginToNativeWatchMap[pluginWatchId] = nativeWatchOptions;
         };
 
         var fail = function () {
@@ -61,9 +89,19 @@ module.exports = {
 
     clearWatch: function (pluginWatchId) {
         var win = function () {
-            var nativeWatchId = pluginToNativeWatchMap[pluginWatchId];
-            var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
-            geo.clearWatch(nativeWatchId);
+            var nativeWatchOptions = pluginToNativeWatchMap[pluginWatchId];
+
+            if (!nativeWatchOptions) {
+                return;
+            }
+
+            if (nativeWatchOptions.usesFrequency) {
+                clearInterval(nativeWatchOptions.intervalId);
+
+            } else {
+                var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
+                geo.clearWatch(nativeWatchOptions.id);
+            }
         };
 
         exec(win, null, 'Geolocation', 'getPermission', []);
