@@ -22,7 +22,8 @@
   ],
   "scripts": {
     "test": "npm run lint",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:android": "cordova-paramedic --platform android --plugin ./ --verbose --cleanUpAfterRun"
   },
   "author": "Apache Software Foundation",
   "license": "Apache-2.0",
@@ -37,6 +38,7 @@
     }
   },
   "devDependencies": {
-    "@cordova/eslint-config": "^3.0.0"
+    "@cordova/eslint-config": "^3.0.0",
+    "cordova-paramedic": "git+https://github.com/apache/cordova-paramedic.git"
   }
 }
