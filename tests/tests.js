@@ -278,6 +278,7 @@ exports.defineAutoTests = function () {
                     frequency: 1000
                 };
 
+                var context = this;
                 var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
 
                 var successCallback = function () {
@@ -313,6 +314,7 @@ exports.defineAutoTests = function () {
                     frequency: 6000
                 };
 
+                var context = this;
                 var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
 
                 var successCallback = function () {
