@@ -259,65 +259,70 @@ exports.defineAutoTests = function () {
             }
 
             var successWatch = null;
-            
-            beforeEach(function () {
-                jasmine.clock().install();
-            });
 
             afterEach(function () {
                 navigator.geolocation.clearWatch(successWatch);
-                jasmine.clock().uninstall();
             });
 
-            it('geolocation.spec.11 should poll for the position at the given frequency', function (done) {
+            it('geolocation.spec.11 should be called with a Position object', function (done) {
+
+                if (isWindowsStore || skipAndroid || isIOSSim) {
+                    pending();
+                }
 
                 var watchOptions = {
-                    maximumAge: 10000,
-                    frequency: 1000
+                    maximumAge: 5000,
+                    frequency: 1500
                 };
-                
-                var callCount = 0;
-                var context = this;
-                var expectedCallCount = 3;
-                var startTimestamp = Date.now();
-                var expectedElaspedTime = expectedCallCount * watchOptions.frequency;
-                var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
 
-                // We aren't testing the functionality of getCurrentPosition() so just fake it here.
-                spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake(function (success) {
-                    if (success) success();
-                });
+                var context = this;
+                var callCount = 0;
+                var maxCalls = 3;
+                var startTimestamp = Date.now();
+                var expectedDurationMs = maxCalls * watchOptions.frequency;
+                var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
+                spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake(function (success) { success(); });
 
                 var successCallback = function () {
 
-                    // prevents done() to be called several times
-                    if (context.done) return;
+                    if (context.done) {
+                        return;
+                    }
 
                     callCount++;
 
-                    if (callCount < expectedCallCount) {
+                    if (callCount < maxCalls) {
                         return;
                     }
 
                     context.done = true;
-                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(expectedCallCount);
+
+                    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(maxCalls);
                     expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledWith(successCallback, errorCallback, watchOptions);
 
                     var elapsed = Date.now() - startTimestamp;
-                    expect(elapsed).toBeGreaterThanOrEqual(expectedElaspedTime);
-                    expect(elapsed).toBeLessThanOrEqual(expectedElaspedTime + 2000); // give-or-take 2 seconds
+                    expect(elapsed >= expectedDurationMs).toBe(true);
+                    expect(elapsed <= expectedDurationMs + 2000).toBe(true);
 
-                    // callback could be called sync so we invoke done async to make sure we know watcher id to .clear in afterEach
                     setTimeout(function () {
                         done();
                     });
                 };
 
-                successWatch = navigator.geolocation.watchPosition(successCallback, errorCallback, watchOptions);
+                successWatch = navigator.geolocation.watchPosition(
+                    successCallback,
+                    errorCallback,
+                    watchOptions
+                );
+
                 expect(successWatch).toBeDefined();
             });
 
             it('geolocation.spec.12 should not allow the max age to be less than the provided frequency', function (done) {
+
+                if (isWindowsStore || skipAndroid || isIOSSim) {
+                    pending();
+                }
 
                 var watchOptions = {
                     maximumAge: 3000,
@@ -326,21 +331,14 @@ exports.defineAutoTests = function () {
 
                 var context = this;
                 var errorCallback = fail.bind(null, done, context, 'Unexpected fail callback');
-                
-                // We aren't testing the functionality of getCurrentPosition() so just fake it here.
-                spyOn(navigator.geolocation, 'getCurrentPosition').and.callFake(function (success) {
-                    if (success) success();
-                });
 
                 var successCallback = function () {
-                    
-                    // prevents done() to be called several times
+
                     if (context.done) return;
                     context.done = true;
 
                     expect(watchOptions.maximumAge).toBe(watchOptions.frequency);
 
-                    // callback could be called sync so we invoke done async to make sure we know watcher id to .clear in afterEach
                     setTimeout(function () {
                         done();
                     });

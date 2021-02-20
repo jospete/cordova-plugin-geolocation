@@ -31,7 +31,7 @@ var isPositiveNumber = function (v) {
 // So we use additional map and own ids to return watch id synchronously.
 var pluginToNativeWatchMap = {};
 
-module.exports = {
+var androidGeolocation = {
     getCurrentPosition: function (success, error, args) {
         var win = function () {
             var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
@@ -62,15 +62,15 @@ module.exports = {
         }
 
         var win = function () {
-            var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
             var nativeWatchOptions = { id: null, intervalId: null, usesFrequency: usesFrequency };
 
             if (usesFrequency) {
                 nativeWatchOptions.intervalId = setInterval(function () {
-                    geo.getCurrentPosition(success, error, args);
+                    androidGeolocation.getCurrentPosition(success, error, args);
                 }, frequency);
 
             } else {
+                var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
                 nativeWatchOptions.id = geo.watchPosition(success, error, args);
             }
 
@@ -107,3 +107,5 @@ module.exports = {
         exec(win, null, 'Geolocation', 'getPermission', []);
     }
 };
+
+module.exports = androidGeolocation;
