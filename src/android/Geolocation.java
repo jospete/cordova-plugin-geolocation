@@ -76,8 +76,9 @@ public class Geolocation extends CordovaPlugin {
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
 
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        mSettingsClient = LocationServices.getSettingsClient(this);
+        Activity activity = cordova.getActivity();
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(activity);
+        mSettingsClient = LocationServices.getSettingsClient(activity);
 
         mLocationCallback = new LocationCallback() {
             @Override
@@ -188,8 +189,10 @@ public class Geolocation extends CordovaPlugin {
 
         if (watchOptions != null) {
             replaceWatcherContext(callbackContext);
-            startLocationUpdates(watchOptions.optBoolean(WATCH_OPTION_ENABLE_HIGH_ACCURACY, false),
-                    watchOptions.optLong(WATCH_OPTION_FREQUENCY, 5000));
+            startLocationUpdates(
+                watchOptions.optBoolean(WATCH_OPTION_ENABLE_HIGH_ACCURACY, false),
+                watchOptions.optLong(WATCH_OPTION_FREQUENCY, 5000)
+            );
 
         } else {
             callbackContext.error("Missing required parameter watchOptions");
@@ -250,6 +253,33 @@ public class Geolocation extends CordovaPlugin {
         return result;
     }
 
+    private void handleLocationSettingsCheckFailure(@NonNull Exception e) {
+
+        int statusCode = ((ApiException) e).getStatusCode();
+        Log.i(TAG, "handleLocationSettingsCheckFailure() statusCode = " + statusCode);
+
+        switch (statusCode) {
+            case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                Log.i(TAG,
+                        "Location settings are not satisfied. Attempting to upgrade location settings");
+                try {
+                    // Show the dialog by calling startResolutionForResult(), and check the result
+                    // in onActivityResult().
+                    ResolvableApiException rae = (ResolvableApiException) e;
+                    rae.startResolutionForResult(cordova.getActivity(), REQUEST_CHECK_SETTINGS);
+                } catch (IntentSender.SendIntentException sie) {
+                    rejectCurrentWatcherContext("PendingIntent unable to execute request.");
+                }
+                break;
+            case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                rejectCurrentWatcherContext("Location settings are inadequate, and cannot be fixed here. Fix in Settings.");
+                break;
+            default:
+                rejectCurrentWatcherContext("Unknown error occurred while attempting to start location updates: " + statusCode);
+                break;
+        }
+    }
+
     private void startLocationUpdates(boolean enableHighAccuracy, long frequency) {
 
         Log.i(TAG, "startLocationUpdates() enableHighAccuracy = " + enableHighAccuracy + ", frequency = " + frequency);
@@ -257,49 +287,35 @@ public class Geolocation extends CordovaPlugin {
         LocationRequest locationRequest = new LocationRequest();
         locationRequest.setFastestInterval(frequency);
         locationRequest.setPriority(
-                enableHighAccuracy ? LocationRequest.PRIORITY_HIGH_ACCURACY : LocationRequest.PRIORITY_LOW_POWER);
+            enableHighAccuracy 
+            ? LocationRequest.PRIORITY_HIGH_ACCURACY 
+            : LocationRequest.PRIORITY_LOW_POWER
+        );
 
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder();
         builder.addLocationRequest(locationRequest);
         LocationSettingsRequest locationSettingsRequest = builder.build();
 
+        Activity activity = cordova.getActivity();
+
+        OnSuccessListener<LocationSettingsResponse> onSuccess = new OnSuccessListener<LocationSettingsResponse>() {
+            @Override
+            public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
+                Log.i(TAG, "All location settings are satisfied.");
+                mFusedLocationClient.requestLocationUpdates(locationRequest, mLocationCallback, Looper.myLooper());
+            }
+        };
+
+        OnFailureListener onFailure = new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                handleLocationSettingsCheckFailure(e);
+            }
+        };
+
         // Begin by checking if the device has the necessary location settings.
         mSettingsClient.checkLocationSettings(locationSettingsRequest)
-                .addOnSuccessListener(this, new OnSuccessListener<LocationSettingsResponse>() {
-                    @Override
-                    public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
-                        Log.i(TAG, "All location settings are satisfied.");
-                        mFusedLocationClient.requestLocationUpdates(locationRequest, mLocationCallback,
-                                Looper.myLooper());
-                    }
-                }).addOnFailureListener(this, new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        int statusCode = ((ApiException) e).getStatusCode();
-                        switch (statusCode) {
-                            case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-                                Log.i(TAG,
-                                        "Location settings are not satisfied. Attempting to upgrade location settings");
-                                try {
-                                    // Show the dialog by calling startResolutionForResult(), and check the
-                                    // result in onActivityResult().
-                                    ResolvableApiException rae = (ResolvableApiException) e;
-                                    rae.startResolutionForResult(cordova.getActivity(), REQUEST_CHECK_SETTINGS);
-                                } catch (IntentSender.SendIntentException sie) {
-                                    rejectCurrentWatcherContext("PendingIntent unable to execute request.");
-                                }
-                                break;
-                            case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
-                                rejectCurrentWatcherContext(
-                                        "Location settings are inadequate, and cannot be fixed here. Fix in Settings.");
-                                break;
-                            default:
-                                rejectCurrentWatcherContext(
-                                        "Unknown error occurred while attempting to start location updates: "
-                                                + statusCode);
-                                break;
-                        }
-                    }
-                });
+            .addOnSuccessListener(activity, onSuccess)
+            .addOnFailureListener(activity, onFailure);
     }
 }
