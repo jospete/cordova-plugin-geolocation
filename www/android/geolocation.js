@@ -21,6 +21,7 @@
 
 var exec = cordova.require('cordova/exec'); // eslint-disable-line no-undef
 var utils = require('cordova/utils');
+var Position = require('./Position');
 var PositionError = require('./PositionError');
 
 var isPositiveNumber = function (v) {
@@ -65,9 +66,19 @@ var androidGeolocation = {
             var nativeWatchOptions = { id: null, usesFrequency: usesFrequency };
 
             if (usesFrequency) {
+
+                var successWrapper = function (json) {
+                    json = json || {};
+                    success(new Position(json.coords, json.timestamp));
+                };
+
+                var errorWrapper = function (message) {
+                    error(new PositionError(PositionError.POSITION_UNAVAILABLE, message));
+                };
+
                 // It doesn't make sense to track multiple callbacks if the point is to conserve battery,
-                // so we will only track a single callback context at any given time for position watching.
-                exec(success, error, 'Geolocation', 'beginNativeWatch', [args]);
+                // so we will ignore the watcher ID and only track a single callback context at any given time for position watching.
+                exec(successWrapper, errorWrapper, 'Geolocation', 'beginNativeWatch', [args]);
 
             } else {
                 var geo = cordova.require('cordova/modulemapper').getOriginalSymbol(window, 'navigator.geolocation'); // eslint-disable-line no-undef
